@@ -108,7 +108,6 @@ This project provides an API for uploading and analyzing employee sales performa
 * The API will be available at `http://localhost:8000`.
 
 ### Dependencies
-
 * Django
 * Pandas
 * Cohere API (for AI-powered performance feedback)
