@@ -1,13 +1,12 @@
+from rest_framework.parsers import MultiPartParser
+import cohere
 import pandas as pd
 from rest_framework.views import APIView
 from rest_framework.response import Response
-from rest_framework.parsers import MultiPartParser
 from .models import EmployeePerformance
-import cohere
 from collections import defaultdict
-from datetime import datetime
 
-cohere_api_key = "Cm64CRD65ERzwF4bM8uiVZFHazvTBMzGp2Q0WaZ6"  # Replace with your Cohere API key
+cohere_api_key = "Cm64CRD65ERzwF4bM8uiVZFHazvTBMzGp2Q0WaZ6"
 co = cohere.Client(cohere_api_key)
 
 
@@ -133,14 +132,6 @@ class TeamPerformance(APIView):
         return Response({"feedback": feedback})
 
 
-import pandas as pd
-from rest_framework.views import APIView
-from rest_framework.response import Response
-from datetime import datetime
-from .models import EmployeePerformance
-from collections import defaultdict
-
-
 class PerformanceTrends(APIView):
     def get(self, request):
         try:
@@ -148,43 +139,30 @@ class PerformanceTrends(APIView):
             if not time_period:
                 return Response({"error": "time_period parameter is required"}, status=400)
 
-            # Check if time_period is valid
             if time_period not in ['monthly', 'quarterly']:
                 return Response({"error": "Invalid time_period. Please use 'monthly' or 'quarterly'."}, status=400)
 
-            # Fetch all employee performance data
             data = EmployeePerformance.objects.all()
-
-            # Create an empty dictionary to store aggregated data
             aggregated_data = defaultdict(lambda: {'revenue_confirmed': 0, 'lead_taken': 0, 'applications': 0})
-
-            # Group data by the required time period
             for record in data:
-                # Convert the created field (which is a string) to a datetime object
                 record_date = pd.to_datetime(record.created,
-                                             errors='coerce')  # Coerce invalid dates to NaT (Not a Time)
-                if pd.isna(record_date):  # If the conversion failed
-                    continue  # Skip this record or handle the error appropriately
+                                             errors='coerce')  # NaT (Not a Time)
+                if pd.isna(record_date):
+                    continue
 
-                # Extract month and quarter
                 if time_period == 'monthly':
                     period_key = record_date.strftime('%Y-%m')  # Year-Month format
                 elif time_period == 'quarterly':
-                    quarter = (record_date.month - 1) // 3 + 1  # Get quarter (1, 2, 3, 4)
+                    quarter = (record_date.month - 1) // 3 + 1
                     period_key = f"{record_date.year}-Q{quarter}"
 
-                # Aggregate data based on the period (month or quarter)
                 aggregated_data[period_key]['revenue_confirmed'] += record.revenue_confirmed
                 aggregated_data[period_key]['lead_taken'] += record.lead_taken
                 aggregated_data[period_key]['applications'] += record.applications
 
-            # Forecasting (for simplicity, let's assume a basic trend of calculating the average of the last period)
-            # Example: Simple linear forecast (basic, for illustrative purposes)
-
             trend_data = []
-            periods = sorted(aggregated_data.keys())  # Sort periods in chronological order
+            periods = sorted(aggregated_data.keys())
 
-            # Calculate the trend (you can replace this with a more sophisticated forecasting algorithm)
             for period in periods:
                 data_point = aggregated_data[period]
                 trend_data.append({
@@ -194,18 +172,20 @@ class PerformanceTrends(APIView):
                     "applications": data_point['applications']
                 })
 
-            # Basic forecast (simply averaging the last period’s values)
             if trend_data:
-                last_period = trend_data[-1]
+                total_revenue = sum(item['revenue_confirmed'] for item in trend_data)
+                total_leads = sum(item['lead_taken'] for item in trend_data)
+                total_applications = sum(item['applications'] for item in trend_data)
+                count = len(trend_data)
+
                 forecast = {
-                    "forecast_revenue_confirmed": last_period['revenue_confirmed'],
-                    "forecast_lead_taken": last_period['lead_taken'],
-                    "forecast_applications": last_period['applications']
+                    "forecast_revenue_confirmed": round(total_revenue / count, 2),
+                    "forecast_lead_taken": round(total_leads / count, 2),
+                    "forecast_applications": round(total_applications / count, 2)
                 }
             else:
                 forecast = {}
 
-            # Return response
             return Response({
                 "trend_data": trend_data,
                 "forecast": forecast
